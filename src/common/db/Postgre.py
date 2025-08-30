@@ -10,41 +10,28 @@ class ConversationHistoryManager:
         self._create_table()
 
     def _create_table(self):
-        """Create conversations table"""
+        """Create conversationss table"""
         with psycopg.connect(self.database_url) as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    CREATE TABLE IF NOT EXISTS conversations (
+                    CREATE TABLE IF NOT EXISTS conversationss (
                         username VARCHAR(255) NOT NULL,
                         conversation_id VARCHAR(255) NOT NULL,
-                        conversation JSONB NOT NULL,
+                        conversation TEXT NOT NULL,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         PRIMARY KEY (conversation_id)
                     );
                 """
                 )
 
-    def store(
-        self,
-        username: str,
-        conversation_id: str,
-        user_msg: str,
-        agent_name: str,
-        agent_response: str,
-    ):
+    def store(self, username: str, conversation_id: str, conversation):
         """Store/update conversation"""
-        new_interaction = {
-            "user": user_msg,
-            "agent": agent_response,
-            "agent_name": agent_name,
-        }
-
         with psycopg.connect(self.database_url) as conn:
             with conn.cursor() as cur:
                 # Check if conversation exists
                 cur.execute(
-                    "SELECT conversation FROM conversations WHERE conversation_id = %s",
+                    "SELECT conversation FROM conversationss WHERE conversation_id = %s",
                     (conversation_id,),
                 )
                 result = cur.fetchone()
@@ -53,13 +40,13 @@ class ConversationHistoryManager:
                     # Append to existing conversation
                     existing_data = result[0]
                     if isinstance(existing_data, list):
-                        existing_data.append(new_interaction)
+                        existing_data.append(conversation)
                     else:
-                        existing_data = [existing_data, new_interaction]
+                        existing_data = [existing_data, conversation]
 
                     cur.execute(
                         """
-                        UPDATE conversations 
+                        UPDATE conversationss 
                         SET conversation = %s, updated_at = CURRENT_TIMESTAMP
                         WHERE conversation_id = %s
                     """,
@@ -69,10 +56,10 @@ class ConversationHistoryManager:
                     # New conversation
                     cur.execute(
                         """
-                        INSERT INTO conversations (username, conversation_id, conversation)
+                        INSERT INTO conversationss (username, conversation_id, conversation)
                         VALUES (%s, %s, %s)
                     """,
-                        (username, conversation_id, json.dumps([new_interaction])),
+                        (username, conversation_id, json.dumps([conversation])),
                     )
 
     def fetch(self, conversation_id: str) -> Optional[Dict]:
@@ -82,7 +69,7 @@ class ConversationHistoryManager:
                 cur.execute(
                     """
                     SELECT username, conversation_id, conversation 
-                    FROM conversations 
+                    FROM conversationss 
                     WHERE conversation_id = %s
                 """,
                     (conversation_id,),
@@ -104,7 +91,7 @@ class ConversationHistoryManager:
                 cur.execute(
                     """
                     SELECT conversation
-                    FROM conversations 
+                    FROM conversationss 
                     WHERE conversation_id = %s
                 """,
                     (conversation_id,),

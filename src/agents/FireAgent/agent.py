@@ -25,7 +25,7 @@ class FireAgent:
             name=AgentPrompts.FireAgent.NAME,
             instruction=AgentPrompts.FireAgent.INSTRUCTION,
             description=AgentPrompts.FireAgent.DESCRIPTION,
-            model=LiteLlm(model=LlmConfig.Anthropic.HAIKU_3_MODEL),
+            model=LiteLlm(model=LlmConfig.Anthropic.SONET_4_MODEL),
         )
 
     async def invoke(self, query: str, session_id: str) -> AsyncIterable[dict]:

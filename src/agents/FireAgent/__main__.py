@@ -32,17 +32,6 @@ def main():
                 "Electrical burn assessment",
             ],
         ),
-        AgentSkill(
-            id="fire_prevention",
-            name="Fire Safety & Prevention",
-            description="Fire prevention measures and safety protocols",
-            tags=["prevention", "safety", "protocols", "education"],
-            examples=[
-                "Fire safety equipment checks",
-                "Prevention strategies",
-                "Safety protocol education",
-            ],
-        ),
     ]
 
     agent_card = AgentCard(

@@ -10,25 +10,28 @@ class AgentConnector:
     Connects to a remote A2A agent and provides a uniform method to delegate tasks
     """
 
-    def __init__(self, agent_card: AgentCard):
-        self.agent_card = agent_card
+    def __init__(self):
+        pass
 
-    async def send_task(self, message: str, session_id: str) -> str:
+    async def send_task(self, matched_card, message: str, token: str) -> str:
         """
         Send a task to the agent and return the Task object
 
         Args:
             message (str): The message to send to the agent
             session_id (str): The session ID for tracking the task
+            token(str): Auth token
 
         Returns:
             Task: The Task object containing the response from the agent
         """
 
-        async with httpx.AsyncClient(timeout=300.0) as httpx_client:
+        async with httpx.AsyncClient(
+            headers={"Authorization": token}, timeout=300.0
+        ) as httpx_client:
             a2a_client = A2AClient(
                 httpx_client=httpx_client,
-                agent_card=self.agent_card,
+                agent_card=matched_card,
             )
 
             send_message_payload: dict[str, Any] = {

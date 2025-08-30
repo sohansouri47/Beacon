@@ -11,17 +11,6 @@ def main():
 
     skills = [
         AgentSkill(
-            id="minor_injuries",
-            name="Minor Injury Treatment",
-            description="Handle cuts, scrapes, bruises, and minor injuries",
-            tags=["injury", "first-aid", "treatment", "care"],
-            examples=[
-                "Clean and bandage minor cuts",
-                "Treat small bruises and sprains",
-                "Handle minor bleeding",
-            ],
-        ),
-        AgentSkill(
             id="minor_medical",
             name="Minor Medical Issues",
             description="Address minor allergic reactions, headaches, and non-critical symptoms",
