@@ -122,7 +122,6 @@ class OrchestratorAgent:
         async for event in self._runner.run_async(
             user_id=self._user_id, new_message=user_content, session_id=session_id
         ):
-            print(f"Event type: {type(event)}, content: {event}, 1234567890")
             if event.is_final_response():
                 final_response = ""
                 if (
@@ -138,8 +137,3 @@ class OrchestratorAgent:
                     conversation=final_response_json,
                 )
                 yield {"is_task_complete": True, "content": final_response}
-            # else:
-            #     yield {
-            #         "is_task_complete": False,
-            #         "updates": "Agent is processing your request...",
-            #     }
