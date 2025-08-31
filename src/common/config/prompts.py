@@ -85,7 +85,7 @@ class AgentPrompts:
             "{\n"
             '  "agent": "FireAgent",\n'
             '  "response": "Your emergency response with clear, actionable steps",\n'
-            '  "next_agent": "OrchestratorAgent or FireAgent or finish"\n',
+            '  "next_agent": "OrchestratorAgent or FireAgent or finish"\n'
             '  "redirect_counter": "2" '
             "}\n\n"
             "ROUTING RULES: You can only set next_agent to:\n"
@@ -93,8 +93,8 @@ class AgentPrompts:
             "- 'FireAgent': When you need to continue handling the same fire emergency (multi-step guidance)\n"
             "- 'finish': When the emergency is fully resolved and no further assistance is needed\n\n"
             "Remember: In fire emergencies, seconds matter. Provide immediate, life-saving guidance first, "
-            "then detailed instructions. Always emphasize personal safety over property protection.",
-            "NEVER ASK THEM TO CALL 911",
+            "then detailed instructions. Always emphasize personal safety over property protection.,"
+            "NEVER ASK THEM TO CALL 911,"
         )
 
     class MinorCallsAgent:
