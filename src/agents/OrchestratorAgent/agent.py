@@ -14,6 +14,7 @@ from src.common.agent_registry.agent_connector import AgentConnector
 import uuid
 from src.common.db.Postgre import ConversationHistoryManager
 import json
+import re
 
 
 class OrchestratorAgent:
@@ -130,7 +131,27 @@ class OrchestratorAgent:
                     and event.content.parts[-1].text
                 ):
                     final_response = event.content.parts[-1].text
-                    final_response_json = json.loads(final_response)
+
+                if not final_response or not final_response.strip():
+                    raise ValueError("Model returned empty response, cannot parse JSON")
+
+                try:
+                    # Find last JSON object in the string
+                    match = re.search(r"\{.*\}", final_response, re.DOTALL)
+                    if match:
+                        json_str = match.group(0)
+                        final_response_json = json.loads(json_str)
+                    else:
+                        raise ValueError("No JSON object found")
+
+                except (json.JSONDecodeError, ValueError) as e:
+                    # Fallback default JSON
+                    final_response_json = {
+                        "agent": "OrchestratorAgent",
+                        "response": "Tell me what's happening right now.",
+                        "next_agent": "OrchestratorAgent",
+                    }
+                    print("its ok, fallback JSON used")
                 self._conversation_history_manger.store(
                     username="random",
                     conversation_id=self._context_id,

@@ -1,16 +1,20 @@
 import uuid
 import httpx
 import asyncio
-from a2a.client import A2ACardResolver, A2AClient
+from a2a.client import A2AClient
+from a2a.client import A2AClient, A2ACardResolver
 from a2a.types import (
     AgentCard,
     Message,
-    MessageSendParams,
     Part,
     Role,
     SendMessageRequest,
+    SendMessageResponse,
+    MessageSendParams,
     TextPart,
+    SendMessageSuccessResponse,
 )
+import re
 import uuid
 from src.chat.model.chat_model import ConversationRequestModel
 from a2a.types import SendMessageResponse, SendMessageSuccessResponse
@@ -20,15 +24,20 @@ from fastrtc import get_stt_model, get_tts_model
 import webrtcvad
 import numpy as np
 import librosa
+from src.common.config.constants import Constants
+from src.common.logger.logger import get_logger
+from src.common.config.constants import Constants
+from src.common.config.config import AgenticSystemConfig, ConversationConfig
 
-PUBLIC_AGENT_CARD_PATH = "/.well-known/agent.json"
-BASE_URL = "http://localhost:8000"
+logger = get_logger(__name__)
+STT_MODEL = get_stt_model()
+TTS_MODEL = get_tts_model("kokoro")
 
 
 class ChatService:
     def __init__(self):
-        self.stt_model = get_stt_model()
-        self.tts_model = get_tts_model("kokoro")
+        self.stt_model = STT_MODEL
+        self.tts_model = TTS_MODEL
         self.vad = webrtcvad.Vad(2)
         self.SAMPLE_RATE = 16000
         self.FRAME_DURATION = 30
@@ -36,63 +45,91 @@ class ChatService:
         self.BYTES_PER_FRAME = self.FRAME_SIZE * 2
         self.is_bot_speaking = False
 
-    async def chat(
-        self, conversation_rquest: ConversationRequestModel, headers: dict[str, str]
-    ):
-        context_id = conversation_rquest.context_id
-
+    async def get_response_from_agent(
+        self,
+        context_id: str,
+        user_prompt: str,
+        user_id: str,
+    ) -> SendMessageResponse:
+        """Send user message to agent and return raw response"""
         async with httpx.AsyncClient(timeout=300) as httpx_client:
             resolver = A2ACardResolver(
                 httpx_client=httpx_client,
-                base_url=BASE_URL,
-                agent_card_path=PUBLIC_AGENT_CARD_PATH,
+                base_url=AgenticSystemConfig.ORCH_AGENT_URL,
+                agent_card_path=AgenticSystemConfig.PUBLIC_AGENT_CARD_PATH,
             )
             agent_card: AgentCard = await resolver.get_agent_card()
             client = A2AClient(httpx_client=httpx_client, agent_card=agent_card)
-            for text in [conversation_rquest.user_prompt]:
-                message_payload = Message(
-                    role=Role.user,
-                    messageId=str(uuid.uuid4()),
-                    parts=[Part(root=TextPart(text=text))],
-                    contextId=context_id,
-                )
-                request = SendMessageRequest(
-                    id=str(uuid.uuid4()),
-                    params=MessageSendParams(message=message_payload),
-                )
 
-                response = await client.send_message(request)
+            message_payload = Message(
+                role=Role.user,
+                messageId=str(uuid.uuid4()),
+                parts=[Part(root=TextPart(text=user_prompt))],
+                contextId=context_id,
+                metadata={"user_id": user_id},
+            )
+            request = SendMessageRequest(
+                id=str(uuid.uuid4()),
+                params=MessageSendParams(message=message_payload),
+            )
 
-            def extract_response_and_context(
-                response: SendMessageResponse,
-            ) -> Dict[str, str]:
-                if isinstance(response.root, SendMessageSuccessResponse):
-                    result = response.root.result
+            logger.info("Sending message to agent")
+            response = await client.send_message(request)
+            logger.info("Received response from agent")
+            return response
 
-                    # Get the latest agent message
-                    if hasattr(result, "status") and hasattr(result.status, "message"):
-                        raw_text = result.status.message.parts[0].root.text
-                        context_id = result.context_id
-                    else:
-                        raw_text = result.parts[0].root.text
-                        context_id = result.context_id
+    def extract_response_and_context(
+        self, response: SendMessageResponse
+    ) -> Dict[str, str]:
+        """Normalize agent response and extract text + context"""
+        if isinstance(response.root, SendMessageSuccessResponse):
+            result = response.root.result
 
-                    # Parse the JSON string in text
-                    try:
-                        parsed_text = json.loads(raw_text)
-                    except json.JSONDecodeError:
-                        parsed_text = {"response": raw_text, "next_agent": None}
+            # Handle both response types
+            if hasattr(result, "status") and hasattr(result.status, "message"):
+                raw_text = result.status.message.parts[0].root.text
+                context_id = result.context_id
+            else:
+                raw_text = result.parts[0].root.text
+                context_id = result.context_id
 
-                    return {
-                        "contextId": context_id,
-                        "response": parsed_text.get("response"),
-                        "next_agent": parsed_text.get("next_agent"),
-                    }
-                else:
-                    return {"error": response.root.error}
+            parsed_text = None
 
-            resp_data = extract_response_and_context(response=response)
-            return resp_data
+            # Try extracting JSON block if text contains both narration + JSON
+            match = re.search(r"\{.*\}", raw_text, re.DOTALL)
+            if match:
+                try:
+                    parsed_text = json.loads(match.group())
+                except json.JSONDecodeError:
+                    pass  # fallback below
+
+            if not parsed_text:
+                # fallback: treat raw_text as plain response
+                parsed_text = {
+                    "response": raw_text.strip(),
+                    "next_agent": None,
+                }
+
+            return {
+                "contextId": context_id,
+                "response": parsed_text.get("response"),
+                "next_agent": parsed_text.get("next_agent"),
+            }
+
+        else:
+            return {"error": response.root.error}
+
+    async def chat(
+        self, conversation_request: ConversationRequestModel, headers: dict[str, str]
+    ):
+        """Main chat entry point"""
+        print(conversation_request)
+        response = await self.get_response_from_agent(
+            context_id=conversation_request.context_id,
+            user_prompt=conversation_request.user_prompt,
+            user_id=conversation_request.user_id,
+        )
+        return self.extract_response_and_context(response)
 
     def resample_to_16k(self, audio: np.ndarray, orig_sr: int) -> np.ndarray:
         """Resample float32 audio to 16kHz int16 PCM"""
@@ -138,9 +175,15 @@ class ChatService:
                     # --- Bot response ---
                     response_text = f"You asked: {text}. Here’s my answer."
                     print("🤖 Bot response:", response_text)
-
+                    response = await self.get_response_from_agent(
+                        context_id=ConversationConfig.CONTEXT_ID,
+                        user_prompt=text,
+                        user_id=ConversationConfig.USER_ID,
+                    )
+                    response_text = self.extract_response_and_context(response)
+                    print(response_text)
                     # --- Text-to-Speech ---
-                    sr, audio_out = self.tts_model.tts(response_text)
+                    sr, audio_out = self.tts_model.tts(response_text["response"])
                     if audio_out.ndim > 1:
                         audio_out = audio_out[:, 0]
 

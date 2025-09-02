@@ -14,3 +14,7 @@ class LlmConfig:
 class Routes:
     SEND_TEXT = "/chat"
     SEND_VOICE = "/voice"
+
+
+class Constants:
+    USER_ROLE = "RANDOM_USER_ROLE"
