@@ -3,3 +3,4 @@
 __pycache__/
 /myenv/
 __init__.py
+/logs/

@@ -8,7 +8,6 @@ from a2a.utils import new_task, new_agent_text_message
 from a2a.utils.errors import ServerError
 
 from a2a.types import Task, TaskState, UnsupportedOperationError
-
 import asyncio
 from src.common.db.Postgre import ConversationHistoryManager
 
@@ -48,16 +47,11 @@ class FireAgentExecutor(AgentExecutor):
                     )
                 else:
                     final_result = item.get("content", "no result received")
+                    print("fire_agent_response", final_result)
                     await updater.update_status(
                         TaskState.completed,
                         new_agent_text_message(final_result, task.context_id, task.id),
                     )
-
-                    manager = ConversationHistoryManager()
-                    manager.store(
-                        "john", task.context_id, query, "FireAgent", final_result
-                    )
-                    manager.fetch(conversation_id=task.context_id)
                     await asyncio.sleep(0.1)
                     break
 

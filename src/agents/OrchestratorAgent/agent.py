@@ -43,8 +43,8 @@ class OrchestratorAgent:
     async def _build_agent(self) -> LlmAgent:
         agentlist = await self._agent_registry.get_agents_list()
         agentcards = await self._agent_registry.get_context_cards()
-        conversation_history = self._conversation_history_manger.fetch_last_n(
-            self._context_id, 2
+        conversation_history = await self._conversation_history_manger.fetch_last_n(
+            "bobby_rocks", 2
         )
         agentlist_str = json.dumps(agentlist, indent=2)
         agentcards_str = json.dumps(agentcards, indent=2)
@@ -131,6 +131,7 @@ class OrchestratorAgent:
                     and event.content.parts[-1].text
                 ):
                     final_response = event.content.parts[-1].text
+                    print("final orch response inside agent", final_response)
 
                 if not final_response or not final_response.strip():
                     raise ValueError("Model returned empty response, cannot parse JSON")
@@ -152,9 +153,9 @@ class OrchestratorAgent:
                         "next_agent": "OrchestratorAgent",
                     }
                     print("its ok, fallback JSON used")
-                self._conversation_history_manger.store(
-                    username="random",
-                    conversation_id=self._context_id,
-                    conversation=final_response_json,
-                )
+                # self._conversation_history_manger.store(
+                #     username="random",
+                #     conversation_id=self._context_id,
+                #     conversation=final_response_json,
+                # )
                 yield {"is_task_complete": True, "content": final_response}

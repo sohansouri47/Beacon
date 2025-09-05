@@ -8,7 +8,7 @@ from a2a.utils import new_task, new_agent_text_message
 from a2a.utils.errors import ServerError
 
 from a2a.types import Task, TaskState, UnsupportedOperationError
-
+import json
 import asyncio
 from src.common.db.Postgre import ConversationHistoryManager
 
@@ -21,6 +21,7 @@ class OrchestratorAgentExecutor(AgentExecutor):
 
     def __init__(self):
         self.agent = OrchestratorAgent()
+        self.manager = ConversationHistoryManager()
 
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         """
@@ -31,7 +32,11 @@ class OrchestratorAgentExecutor(AgentExecutor):
         if not task:
             task = new_task(context.message)
             await event_queue.enqueue_event(task)
-
+        payload = {"role": "user", "query": query}
+        print(query, "queryyyy")
+        await self.manager.store(
+            conversation_id="bobby_rocks", username="john", conversation=str(payload)
+        )
         updater = TaskUpdater(event_queue, task.id, task.context_id)
 
         try:
@@ -52,11 +57,13 @@ class OrchestratorAgentExecutor(AgentExecutor):
                         TaskState.completed,
                         new_agent_text_message(final_result, task.context_id, task.id),
                     )
+                    print("orch final resulr", final_result)
 
-                    manager = ConversationHistoryManager()
-                    # manager.store(
-                    #     "john", context.context_id, query, "orch", final_result
-                    # )
+                    await self.manager.store(
+                        conversation_id="bobby_rocks",
+                        username="john",
+                        conversation=final_result,
+                    )
                     await asyncio.sleep(0.1)
 
                     break

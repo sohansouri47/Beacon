@@ -96,7 +96,7 @@ class OAuth:
             "grant_type": "client_credentials",
             "client_id": Auth.Descope.DESCOPE_CLIENT_ID,
             "client_secret": Auth.Descope.DESCOPE_CLIENT_SECRET,
-            "scope": f"scope:{agent_name}",
+            "scope": {agent_name},
         }
 
         # Make async HTTP request with SSL context
@@ -110,7 +110,7 @@ class OAuth:
             async with session.post(Auth.Descope.DESCOPE_TOKEN_URL, data=data) as resp:
                 resp.raise_for_status()
                 res = await resp.json()
-
+                print(res)
         # Extract token and expiration
         token = res.get("access_token")
         expires_in = int(res.get("expires_in", 3600))

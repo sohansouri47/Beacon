@@ -75,6 +75,7 @@ class ChatService:
 
             logger.info("Sending message to agent")
             response = await client.send_message(request)
+            print("chat orch response", response)
             logger.info("Received response from agent")
             return response
 

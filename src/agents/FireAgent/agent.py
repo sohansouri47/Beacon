@@ -8,27 +8,47 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types
 from collections.abc import AsyncIterable
 import uuid
+from src.common.db.Postgre import ConversationHistoryManager
+from src.common.logger.logger import get_logger
+
+logger = get_logger("fire_cv")
 
 
 class FireAgent:
     def __init__(self):
-        self._agent = self._build_agent()
+        self._agent = None
+        self.history_manger = ConversationHistoryManager()
+        self._runner = None
+        self._user_id = "random_user"
+
+    async def _initialize(self):
+        self._agent = await self._build_agent()
         self._runner = Runner(
             app_name=AgentPrompts.FireAgent.NAME,
             agent=self._agent,
             session_service=InMemorySessionService(),
         )
-        self._user_id = "random_user"
 
-    def _build_agent(self) -> LlmAgent:
+    async def _build_agent(self) -> LlmAgent:
+        cv = await self.history_manger.fetch_last_n("bobby_rocks", 5)
+        logger.info(cv)
+        print("23456789io098765434567u")
+        print(cv)
+        print("23456789io098765434567u")
+        print(
+            AgentPrompts.FireAgent.INSTRUCTION.format(conversation_history=cv),
+        )
         return LlmAgent(
             name=AgentPrompts.FireAgent.NAME,
-            instruction=AgentPrompts.FireAgent.INSTRUCTION,
+            instruction=AgentPrompts.FireAgent.INSTRUCTION.format(
+                conversation_history=cv
+            ),
             description=AgentPrompts.FireAgent.DESCRIPTION,
             model=LiteLlm(model=LlmConfig.Anthropic.SONET_4_MODEL),
         )
 
     async def invoke(self, query: str, session_id: str) -> AsyncIterable[dict]:
+        await self._initialize()
         session = await self._runner.session_service.get_session(
             app_name=self._agent.name,
             session_id=session_id,
