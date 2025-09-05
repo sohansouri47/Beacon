@@ -11,6 +11,9 @@ from a2a.types import Task, TaskState, UnsupportedOperationError
 import json
 import asyncio
 from src.common.db.Postgre import ConversationHistoryManager
+from src.common.logger.logger import get_logger
+
+logger = get_logger("ORCHAGWENT")
 
 
 class OrchestratorAgentExecutor(AgentExecutor):
@@ -27,20 +30,34 @@ class OrchestratorAgentExecutor(AgentExecutor):
         """
         Executes the agent with the provided context and event queue.
         """
+        message = context.message
+        metadata = message.metadata if message else {}
+        user_id = metadata.get("user_id")
+        role = message.role.value if message and message.role else None
+        query = context.get_user_input()
+        input_payload = {
+            "user": user_id,
+            "role": role,
+            "msg": query,
+        }
+        input_payload_str = json.dumps(input_payload)
+        logger.info(f"Payload:{input_payload_str}")
         query = context.get_user_input()
         task = context.current_task
         if not task:
             task = new_task(context.message)
             await event_queue.enqueue_event(task)
-        payload = {"role": "user", "query": query}
+        store_payload = {"role": "user", "query": query}
         print(query, "queryyyy")
         await self.manager.store(
-            conversation_id="bobby_rocks", username="john", conversation=str(payload)
+            conversation_id=task.context_id,
+            username=user_id,
+            conversation=str(store_payload),
         )
         updater = TaskUpdater(event_queue, task.id, task.context_id)
 
         try:
-            async for item in self.agent.invoke(query, task.context_id):
+            async for item in self.agent.invoke(input_payload_str, task.context_id):
                 is_task_complete = item.get("is_task_complete", False)
 
                 if not is_task_complete:
@@ -60,9 +77,9 @@ class OrchestratorAgentExecutor(AgentExecutor):
                     print("orch final resulr", final_result)
 
                     await self.manager.store(
-                        conversation_id="bobby_rocks",
-                        username="john",
-                        conversation=final_result,
+                        conversation_id=task.context_id,
+                        username=user_id,
+                        conversation=str(final_result),
                     )
                     await asyncio.sleep(0.1)
 

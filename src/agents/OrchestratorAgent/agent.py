@@ -26,25 +26,22 @@ class OrchestratorAgent:
         self._conversation_history_manger = ConversationHistoryManager()
         self._agent = None
         self._runner = None
-        self._initialized = False
         self._context_id = None
 
     async def _initialize(self):
         """Initialize async components"""
-        if not self._initialized:
-            self._agent = await self._build_agent()
-            self._runner = Runner(
-                app_name=AgentPrompts.OrchestratorAgent.NAME,
-                agent=self._agent,
-                session_service=InMemorySessionService(),
-            )
-            self._initialized = True
+        self._agent = await self._build_agent()
+        self._runner = Runner(
+            app_name=AgentPrompts.OrchestratorAgent.NAME,
+            agent=self._agent,
+            session_service=InMemorySessionService(),
+        )
 
     async def _build_agent(self) -> LlmAgent:
         agentlist = await self._agent_registry.get_agents_list()
         agentcards = await self._agent_registry.get_context_cards()
         conversation_history = await self._conversation_history_manger.fetch_last_n(
-            "bobby_rocks", 2
+            self._context_id, 2
         )
         agentlist_str = json.dumps(agentlist, indent=2)
         agentcards_str = json.dumps(agentcards, indent=2)
@@ -64,7 +61,7 @@ class OrchestratorAgent:
             ),
             description=AgentPrompts.OrchestratorAgent.DESCRIPTION,
             model=LiteLlm(
-                model=LlmConfig.Anthropic.OPUS_4_MODEL,
+                model=LlmConfig.Anthropic.SONET_4_MODEL,
             ),
             tools=[
                 FunctionTool(self.redirect_agent),
@@ -79,6 +76,7 @@ class OrchestratorAgent:
         try:
             cards = await self._agent_registry.load_cards()
             token = await self._agent_auth.get_m2m_token(agent_name=agent_name)
+            print(token)
             matched_card = None
 
             for card in cards:
@@ -99,29 +97,36 @@ class OrchestratorAgent:
             print(f"Error in redirect_agent: {e}")
             return f"Error redirecting to agent: {str(e)}"
 
-    async def invoke(self, query: str, session_id: str) -> AsyncIterable[dict]:
-        self._context_id = session_id
-        if not self._initialized:
-            await self._initialize()
+    async def invoke(self, query: str, context_id: str) -> AsyncIterable[dict]:
+        await self._initialize()
+        try:
+            payload: dict[str, str] = json.loads(query)
+            self._user_id = payload.get("user")
+            self._context_id = context_id
+            self._role = payload.get("role")
+            user_query = payload.get("msg")
+        except (json.JSONDecodeError, AttributeError):
+            self._user_id = None
+            self._context_id = context_id
         session = await self._runner.session_service.get_session(
             app_name=self._agent.name,
-            session_id=session_id,
+            session_id=self._context_id,
             user_id=self._user_id,
         )
 
         if not session:
             session = await self._runner.session_service.create_session(
                 app_name=self._agent.name,
-                session_id=session_id,
+                session_id=self._context_id,
                 user_id=self._user_id,
             )
 
         user_content = types.Content(
-            role="user", parts=[types.Part.from_text(text=query)]
+            role=self._role, parts=[types.Part.from_text(text=user_query)]
         )
 
         async for event in self._runner.run_async(
-            user_id=self._user_id, new_message=user_content, session_id=session_id
+            user_id=self._user_id, new_message=user_content, session_id=self._context_id
         ):
             if event.is_final_response():
                 final_response = ""
@@ -153,9 +158,4 @@ class OrchestratorAgent:
                         "next_agent": "OrchestratorAgent",
                     }
                     print("its ok, fallback JSON used")
-                # self._conversation_history_manger.store(
-                #     username="random",
-                #     conversation_id=self._context_id,
-                #     conversation=final_response_json,
-                # )
                 yield {"is_task_complete": True, "content": final_response}

@@ -1,113 +1,4 @@
 import psycopg
-import json
-import os
-from typing import List, Dict, Optional
-
-
-# class ConversationHistoryManager:
-#     def __init__(self, database_url: str = None):
-#         self.database_url = database_url or os.getenv("DATABASE_URL")
-#         self._create_table()
-
-#     def _create_table(self):
-#         """Create conversationss table"""
-#         with psycopg.connect(self.database_url) as conn:
-#             with conn.cursor() as cur:
-#                 cur.execute(
-#                     """
-#                     CREATE TABLE IF NOT EXISTS conversationss (
-#                         username VARCHAR(255) NOT NULL,
-#                         conversation_id VARCHAR(255) NOT NULL,
-#                         conversation TEXT NOT NULL,
-#                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-#                         PRIMARY KEY (conversation_id)
-#                     );
-#                 """
-#                 )
-
-#     def store(self, username: str, conversation_id: str, conversation):
-#         """Store/update conversation"""
-#         with psycopg.connect(self.database_url) as conn:
-#             with conn.cursor() as cur:
-#                 # Check if conversation exists
-#                 cur.execute(
-#                     "SELECT conversation FROM conversationss WHERE conversation_id = %s",
-#                     (conversation_id,),
-#                 )
-#                 result = cur.fetchone()
-
-#                 if result:
-#                     # Append to existing conversation
-#                     existing_data = result[0]
-#                     if isinstance(existing_data, list):
-#                         existing_data.append(conversation)
-#                     else:
-#                         existing_data = [existing_data, conversation]
-
-#                     cur.execute(
-#                         """
-#                         UPDATE conversationss
-#                         SET conversation = %s, updated_at = CURRENT_TIMESTAMP
-#                         WHERE conversation_id = %s
-#                     """,
-#                         (json.dumps(existing_data), conversation_id),
-#                     )
-#                 else:
-#                     # New conversation
-#                     cur.execute(
-#                         """
-#                         INSERT INTO conversationss (username, conversation_id, conversation)
-#                         VALUES (%s, %s, %s)
-#                     """,
-#                         (username, conversation_id, json.dumps([conversation])),
-#                     )
-
-#     def fetch(self, conversation_id: str) -> Optional[Dict]:
-#         """Fetch conversation by ID"""
-#         with psycopg.connect(self.database_url) as conn:
-#             with conn.cursor() as cur:
-#                 cur.execute(
-#                     """
-#                     SELECT username, conversation_id, conversation
-#                     FROM conversationss
-#                     WHERE conversation_id = %s
-#                 """,
-#                     (conversation_id,),
-#                 )
-
-#                 result = cur.fetchone()
-#                 if result:
-#                     return {
-#                         "username": result[0],
-#                         "conversation_id": result[1],
-#                         "conversation": result[2],
-#                     }
-#                 return None
-
-#     def fetch_last_n(self, conversation_id: str, n: int = 10) -> List[Dict]:
-#         """Fetch last n interactions from a conversation"""
-#         with psycopg.connect(self.database_url) as conn:
-#             with conn.cursor() as cur:
-#                 cur.execute(
-#                     """
-#                     SELECT conversation
-#                     FROM conversationss
-#                     WHERE conversation_id = %s
-#                 """,
-#                     (conversation_id,),
-#                 )
-
-#                 result = cur.fetchone()
-#                 if result and result[0]:
-#                     all_interactions = result[0]
-#                     return (
-#                         all_interactions[-n:]
-#                         if len(all_interactions) > n
-#                         else all_interactions
-#                     )
-#                 return []
-
-import psycopg
 import psycopg.rows
 import json
 import os
@@ -117,56 +8,66 @@ from typing import List, Dict, Optional
 class ConversationHistoryManager:
     def __init__(self, database_url: str = None):
         self.database_url = database_url or os.getenv("DATABASE_URL")
+        self.table_name = os.getenv("CONVERSATION_TABLE", "conversationss")
 
     async def _create_table(self):
-        """Create conversationss table"""
+        """Create conversation table"""
         async with await psycopg.AsyncConnection.connect(self.database_url) as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS conversationss (
+                    f"""
+                    CREATE TABLE IF NOT EXISTS {self.table_name} (
                         username VARCHAR(255) NOT NULL,
                         conversation_id VARCHAR(255) NOT NULL,
                         conversation JSONB NOT NULL,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         PRIMARY KEY (conversation_id)
                     );
-                """
+                    """
                 )
             await conn.commit()
 
     async def store(self, username: str, conversation_id: str, conversation):
-        """Store/update conversation"""
+        """Store/update conversation with automatic str->dict handling"""
+        if isinstance(conversation, str):
+            try:
+                conversation = json.loads(conversation)
+            except json.JSONDecodeError:
+                conversation = {"text": conversation}
+
         async with await psycopg.AsyncConnection.connect(self.database_url) as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
-                    "SELECT conversation FROM conversationss WHERE conversation_id = %s",
+                    f"SELECT conversation FROM {self.table_name} WHERE conversation_id = %s",
                     (conversation_id,),
                 )
                 result = await cur.fetchone()
 
                 if result:
-                    # Append to existing conversation
-                    existing_data = result[0]
-                    if isinstance(existing_data, list):
-                        existing_data.append(conversation)
-                    else:
-                        existing_data = [existing_data, conversation]
+                    try:
+                        existing_data = json.loads(result[0])
+                    except Exception:
+                        existing_data = []
+
+                    if not isinstance(existing_data, list):
+                        existing_data = [existing_data]
+
+                    existing_data.append(conversation)
 
                     await cur.execute(
-                        """
-                        UPDATE conversationss 
+                        f"""
+                        UPDATE {self.table_name} 
                         SET conversation = %s, updated_at = CURRENT_TIMESTAMP
                         WHERE conversation_id = %s
-                    """,
+                        """,
                         (json.dumps(existing_data), conversation_id),
                     )
                 else:
                     await cur.execute(
-                        """
-                        INSERT INTO conversationss (username, conversation_id, conversation)
+                        f"""
+                        INSERT INTO {self.table_name} (username, conversation_id, conversation)
                         VALUES (%s, %s, %s)
-                    """,
+                        """,
                         (username, conversation_id, json.dumps([conversation])),
                     )
             await conn.commit()
@@ -176,46 +77,29 @@ class ConversationHistoryManager:
         async with await psycopg.AsyncConnection.connect(self.database_url) as conn:
             async with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
                 await cur.execute(
-                    """
+                    f"""
                     SELECT username, conversation_id, conversation 
-                    FROM conversationss 
+                    FROM {self.table_name} 
                     WHERE conversation_id = %s
-                """,
+                    """,
                     (conversation_id,),
                 )
                 result = await cur.fetchone()
+                if result:
+                    try:
+                        result["conversation"] = json.loads(result["conversation"])
+                    except Exception:
+                        pass
                 return result
 
-    # async def fetch_last_n(self, conversation_id: str, n: int = 10) -> List[Dict]:
-    #     """Fetch last n interactions from a conversation"""
-    #     async with await psycopg.AsyncConnection.connect(self.database_url) as conn:
-    #         async with conn.cursor() as cur:
-    #             await cur.execute(
-    #                 """
-    #                 SELECT conversation
-    #                 FROM conversationss
-    #                 WHERE conversation_id = %s
-    #             """,
-    #                 (conversation_id,),
-    #             )
-    #             result = await cur.fetchone()
-
-    #             if result and result[0]:
-    #                 all_interactions = result[0]
-    #                 return (
-    #                     all_interactions[-n:]
-    #                     if len(all_interactions) > n
-    #                     else all_interactions
-    #                 )
-    #             return []
     async def fetch_last_n(self, conversation_id: str, n: int = 10) -> List[Dict]:
-        """Fetch last n interactions from a conversation"""
+        """Fetch last n interactions from a conversation with safe str->dict handling"""
         async with await psycopg.AsyncConnection.connect(self.database_url) as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
-                    """
+                    f"""
                     SELECT conversation
-                    FROM conversationss 
+                    FROM {self.table_name} 
                     WHERE conversation_id = %s
                     """,
                     (conversation_id,),
@@ -227,18 +111,33 @@ class ConversationHistoryManager:
 
                 raw_data = result[0]
 
-                # recursive JSON decode until it's a list/dict
                 def safe_load(data):
+                    """Recursively decode JSON strings until we get a list/dict"""
                     while isinstance(data, str):
                         try:
                             data = json.loads(data)
                         except Exception:
                             break
-                    return data
-
-                all_interactions = safe_load(raw_data)
-
-                if not isinstance(all_interactions, list):
+                    if isinstance(data, dict):
+                        return [data]
+                    if isinstance(data, list):
+                        flattened = []
+                        for item in data:
+                            if isinstance(item, str):
+                                try:
+                                    loaded = json.loads(item)
+                                    if isinstance(loaded, list):
+                                        flattened.extend(loaded)
+                                    else:
+                                        flattened.append(loaded)
+                                except Exception:
+                                    flattened.append({"text": item})
+                            elif isinstance(item, dict):
+                                flattened.append(item)
+                            else:
+                                flattened.append({"value": item})
+                        return flattened
                     return []
 
+                all_interactions = safe_load(raw_data)
                 return all_interactions[-n:]
