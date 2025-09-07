@@ -28,6 +28,7 @@ from src.common.config.constants import Constants
 from src.common.logger.logger import get_logger
 from src.common.config.constants import Constants
 from src.common.config.config import AgenticSystemConfig, ConversationConfig
+from src.common.auth.auth import OAuth
 
 logger = get_logger(__name__)
 STT_MODEL = get_stt_model()
@@ -44,6 +45,7 @@ class ChatService:
         self.FRAME_SIZE = int(self.SAMPLE_RATE * self.FRAME_DURATION / 1000)
         self.BYTES_PER_FRAME = self.FRAME_SIZE * 2
         self.is_bot_speaking = False
+        self._auth = OAuth()
 
     async def get_response_from_agent(
         self,
@@ -52,7 +54,10 @@ class ChatService:
         user_id: str,
     ) -> SendMessageResponse:
         """Send user message to agent and return raw response"""
-        async with httpx.AsyncClient(timeout=300) as httpx_client:
+        token = await self._auth.get_m2m_token(agent_name="orch_agent")
+        async with httpx.AsyncClient(
+            headers={"Authorization": f"Bearer {token}"}, timeout=300.0
+        ) as httpx_client:
             resolver = A2ACardResolver(
                 httpx_client=httpx_client,
                 base_url=AgenticSystemConfig.ORCH_AGENT_URL,
