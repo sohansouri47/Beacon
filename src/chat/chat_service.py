@@ -30,7 +30,7 @@ from src.common.config.constants import Constants
 from src.common.config.config import AgenticSystemConfig, ConversationConfig
 from src.common.auth.auth import OAuth
 
-logger = get_logger(__name__)
+logger = get_logger("Chat Service")
 STT_MODEL = get_stt_model()
 TTS_MODEL = get_tts_model("kokoro")
 
@@ -80,7 +80,7 @@ class ChatService:
 
             logger.info("Sending message to agent")
             response = await client.send_message(request)
-            print("chat orch response", response)
+            logger.info(f"Orch Agent response{response}")
             logger.info("Received response from agent")
             return response
 
@@ -129,7 +129,7 @@ class ChatService:
         self, conversation_request: ConversationRequestModel, headers: dict[str, str]
     ):
         """Main chat entry point"""
-        print(conversation_request)
+        logger.info(f"Input:{conversation_request}")
         response = await self.get_response_from_agent(
             context_id=conversation_request.context_id,
             user_prompt=conversation_request.user_prompt,
@@ -177,17 +177,14 @@ class ChatService:
                         return buffer, speech_buffer, silence_counter
 
                     # call agent
-
-                    # --- Bot response ---
-                    response_text = f"You asked: {text}. Here’s my answer."
-                    print("🤖 Bot response:", response_text)
+                    logger.info(f"User query:{text}")
                     response = await self.get_response_from_agent(
                         context_id=ConversationConfig.CONTEXT_ID,
                         user_prompt=text,
                         user_id=ConversationConfig.USER_ID,
                     )
                     response_text = self.extract_response_and_context(response)
-                    print(response_text)
+                    logger.info(f"Agent response:{response_text}")
                     # --- Text-to-Speech ---
                     sr, audio_out = self.tts_model.tts(response_text["response"])
                     if audio_out.ndim > 1:

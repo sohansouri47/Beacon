@@ -65,7 +65,7 @@ class OAuth:
             async with session.post(Auth.Descope.DESCOPE_TOKEN_URL, data=data) as resp:
                 resp.raise_for_status()
                 res = await resp.json()
-                print(res)
+                logger.info(f"token details:{res}")
         # Extract token and expiration
         token = res.get("access_token")
         expires_in = int(res.get("expires_in", 3600))

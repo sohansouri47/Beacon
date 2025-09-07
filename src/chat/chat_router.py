@@ -11,7 +11,7 @@ from src.chat.chat_service import ChatService
 from src.chat.model.chat_model import ConversationRequestModel
 from src.common.logger.logger import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger("Chat Router")
 
 
 class ChatRouter:
@@ -22,10 +22,7 @@ class ChatRouter:
         self.include_router()
 
     def register_routes(self) -> None:
-        # HTTP POST /chat
         self.router.post(Routes.SEND_TEXT)(self.chat)
-
-        # WebSocket /voice
         self.router.websocket(Routes.SEND_VOICE)(self.voice_chat)
 
     def include_router(self) -> None:
@@ -52,7 +49,7 @@ class ChatRouter:
         self, websocket: WebSocket, chat_service: ChatService = Depends(ChatService)
     ):
         await websocket.accept()
-        logger.info("🎙️ Client connected to /voice WebSocket")
+        logger.info("Client connected to /voice WebSocket")
 
         buffer = bytearray()
         speech_buffer = bytearray()
@@ -67,8 +64,8 @@ class ChatRouter:
                     )
                 )
         except WebSocketDisconnect:
-            logger.warning("❌ Client disconnected from /voice WebSocket")
+            logger.warning("Client disconnected from /voice WebSocket")
             chat_service.is_bot_speaking = False
         except Exception as e:
-            logger.error(f"⚠️ Error in /voice WebSocket: {e}", exc_info=True)
+            logger.error(f"Error in /voice WebSocket: {e}", exc_info=True)
             chat_service.is_bot_speaking = False
