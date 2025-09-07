@@ -1,6 +1,6 @@
 from typing import Any
 from uuid import uuid4
-from a2a.types import AgentCard, Task, SendMessageRequest, MessageSendParams
+from a2a.types import SendMessageRequest, MessageSendParams
 import httpx
 from a2a.client import A2AClient
 
@@ -13,7 +13,9 @@ class AgentConnector:
     def __init__(self):
         pass
 
-    async def send_task(self, matched_card, message: str, token: str) -> str:
+    async def send_task(
+        self, matched_card, message: str, token: str, metadata: dict
+    ) -> str:
         """
         Send a task to the agent and return the Task object
 
@@ -25,20 +27,22 @@ class AgentConnector:
         Returns:
             Task: The Task object containing the response from the agent
         """
+        print(token, "auth token for agent convo")
 
         async with httpx.AsyncClient(
-            headers={"Authorization": token}, timeout=300.0
+            headers={"Authorization": f"Bearer {token}"}, timeout=300.0
         ) as httpx_client:
             a2a_client = A2AClient(
                 httpx_client=httpx_client,
                 agent_card=matched_card,
             )
-
             send_message_payload: dict[str, Any] = {
                 "message": {
-                    "role": "user",
+                    "role": metadata["role"],
                     "messageId": str(uuid4()),
                     "parts": [{"text": message, "kind": "text"}],
+                    "metadata": {"user_id": metadata["user_id"]},
+                    "context_id": metadata["context_id"],
                 }
             }
 

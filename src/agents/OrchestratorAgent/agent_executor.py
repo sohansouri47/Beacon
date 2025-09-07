@@ -31,6 +31,7 @@ class OrchestratorAgentExecutor(AgentExecutor):
         Executes the agent with the provided context and event queue.
         """
         message = context.message
+        logger.info(message)
         metadata = message.metadata if message else {}
         user_id = metadata.get("user_id")
         role = message.role.value if message and message.role else None
@@ -75,7 +76,7 @@ class OrchestratorAgentExecutor(AgentExecutor):
                         new_agent_text_message(final_result, task.context_id, task.id),
                     )
                     print("orch final resulr", final_result)
-
+                    logger.info(task.context_id)
                     await self.manager.store(
                         conversation_id=task.context_id,
                         username=user_id,

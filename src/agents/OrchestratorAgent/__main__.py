@@ -52,7 +52,7 @@ def main():
     agent_card = AgentCard(
         name="orchestrator_agent",
         description="Central coordination agent that delegates tasks to specialized agents and handles general inquiries. Built using agent development framework for emergency response coordination.",
-        url="http://localhost:8000/",
+        url="http://localhost:10000/",
         version="1.0.0",
         defaultInputModes=["text"],
         defaultOutputModes=["text"],
@@ -68,7 +68,7 @@ def main():
         agent_card=agent_card, http_handler=request_handler
     )
 
-    uvicorn.run(server.build(), host="localhost", port=8000)
+    uvicorn.run(server.build(), host="localhost", port=10000)
 
 
 if __name__ == "__main__":

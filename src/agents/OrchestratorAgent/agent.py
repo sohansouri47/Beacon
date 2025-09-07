@@ -45,13 +45,6 @@ class OrchestratorAgent:
         )
         agentlist_str = json.dumps(agentlist, indent=2)
         agentcards_str = json.dumps(agentcards, indent=2)
-        print(
-            AgentPrompts.OrchestratorAgent.INSTRUCTION.format(
-                conversation_history=conversation_history,
-                agentlist=agentlist_str,
-                agentcards=agentcards_str,
-            )
-        )
         return LlmAgent(
             name=AgentPrompts.OrchestratorAgent.NAME,
             instruction=AgentPrompts.OrchestratorAgent.INSTRUCTION.format(
@@ -60,9 +53,7 @@ class OrchestratorAgent:
                 agentcards=agentcards_str,
             ),
             description=AgentPrompts.OrchestratorAgent.DESCRIPTION,
-            model=LiteLlm(
-                model=LlmConfig.Anthropic.SONET_4_MODEL,
-            ),
+            model=LiteLlm(model=LlmConfig.Anthropic.SONET_4_MODEL),
             tools=[
                 FunctionTool(self.redirect_agent),
                 FunctionTool(self.operator_handoff),
@@ -76,8 +67,12 @@ class OrchestratorAgent:
         try:
             cards = await self._agent_registry.load_cards()
             token = await self._agent_auth.get_m2m_token(agent_name=agent_name)
-            print(token)
             matched_card = None
+            metadata = {
+                "user_id": self._user_id,
+                "context_id": self._context_id,
+                "role": self._role,
+            }
 
             for card in cards:
                 if card.name.lower() == agent_name.lower():
@@ -89,7 +84,10 @@ class OrchestratorAgent:
                 return "Agent not found"
 
             result = await self._agent_connector.send_task(
-                matched_card=matched_card, message=message, token=token
+                matched_card=matched_card,
+                message=message,
+                token=token,
+                metadata=metadata,
             )
             return str(result)
 
