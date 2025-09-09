@@ -14,10 +14,16 @@ Beacon is an AI-powered emergency triage system. To run the full application, th
 
 ### 2. Backend Microservice (Local)
 
-* Repository: [Beacon Backend](Current Repository)
+* Repository: [Beacon Backend](https://github.com/sohansouri47/Beacon.git)
+* Checkout branch `development-backend-only`
 * Install dependencies and run locally:
 
 ```bash
+# Git clone
+git clone https://github.com/sohansouri47/Beacon.git
+cd Beacon
+git checkout development-backend-only
+
 # Activate virtual environment
 source venv/bin/activate  # Linux/macOS
 # OR
