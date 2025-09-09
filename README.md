@@ -101,7 +101,7 @@ docker run -d \
 ## ⚡ Notes
 
 * **Frontend, Backend, Orchestrator** must run locally.
-* **Sub-agent images** (Crime, Spam, Fire) are prebuilt and available via GHCR.
+* **Sub-agent images and MCP** (Crime, Spam, Fire, MCP) are prebuilt and available via GHCR.
 * Make sure all services are using the same `.env` configuration for Descope keys, database, and API credentials.
 * You can monitor logs using `docker logs <container_name>` for agent containers.
 
