@@ -18,7 +18,7 @@ AI-powered triage system for secure, multi-agent communication in emergency resp
 -  ✅ **End-to-End AI Stack** integrating Agent2Agent (A2A), ADK, and MCP for orchestration and extensibility.  
 -  ✅ **Redis-Backed Auth Caching** with TTL for fast, secure token validation.  
 -  ✅ **Pluggable Sub-Agents** for specialized tasks, enabling modular expansion.  
--  ✅ **Secure Agent-to-Agent Authentication Descope** with Descope Inbound Apps enforcing scoped trust.  
+-  ✅ **Productionized Secure Agent-to-Agent Authentication with Descope** Inbound Apps, enforcing scoped trust.  
 -  ✅ **OIDC Authentication via Descope**, including per-session logout handling.  
 -  ✅ **Voice Chat Capabilities** for real-time multimodal (text + voice) interaction.  
 -  ✅ **Containerized Sub-Agents** packaged with Docker for portability and scalability. 
